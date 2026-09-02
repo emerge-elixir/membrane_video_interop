@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Elixir ${{ matrix.elixir }} / OTP ${{ matrix.otp }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - elixir: "1.17"
+            otp: "27"
+          - elixir: "1.20"
+            otp: "29"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ matrix.otp }}
+          elixir-version: ${{ matrix.elixir }}
+      - run: mix deps.get
+      - run: mix format --check-formatted
+      - run: mix compile --force --warnings-as-errors
+      - run: mix test
+
+  docs-and-package:
+    name: Documentation and Hex package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "29"
+          elixir-version: "1.20"
+      - run: mix deps.get
+      - run: mix compile --force --warnings-as-errors
+      - run: mix docs --warnings-as-errors
+      - name: Build and compile the unpacked package
+        run: |
+          package_dir="$RUNNER_TEMP/membrane_video_interop-0.1.0"
+          mix hex.build --unpack --output "$package_dir"
+          (
+            cd "$package_dir"
+            mix deps.get --only prod
+            MIX_ENV=prod mix compile --force --warnings-as-errors
+          )
+
+  release-tag:
+    name: Release tag
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [test, docs-and-package]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify tag, package version, and changelog date
+        run: |
+          version="$(sed -n 's/^  @version "\([^"]*\)"/\1/p' mix.exs)"
+          test -n "$version"
+          test "$GITHUB_REF_NAME" = "v$version"
+          grep -Eq "^## $version - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md
