@@ -40,6 +40,35 @@ defmodule Membrane.VideoInterop.SourceTest do
     assert holder == pending.lease.holder
   end
 
+  test "releases invalid matching frames before admission" do
+    {[], state} = Source.handle_init(nil, %Source{message_tag: :frame})
+    invalid = %{frame(:invalid) | coded_width: 0}
+
+    assert {[notify_parent: {:video_interop_source_error, _reason}], ^state} =
+             Source.handle_info({:frame, invalid}, nil, state)
+
+    assert_receive {:video_interop_release, :invalid, holder}
+    assert holder == invalid.lease.holder
+  end
+
+  test "releases a demanded DMA-BUF frame that has no stream format" do
+    {[], state} = Source.handle_init(nil, %Source{message_tag: :frame})
+    {[], state} = Source.handle_demand(:output, 1, :buffers, nil, state)
+    missing_format = %{frame(:missing_format) | format: nil}
+
+    assert {[notify_parent: {:video_interop_source_error, :missing_frame_format}], ^state} =
+             Source.handle_info({:frame, missing_format}, nil, state)
+
+    assert_receive {:video_interop_release, :missing_format, holder}
+    assert holder == missing_format.lease.holder
+  end
+
+  test "ignores messages outside the configured ingress contract" do
+    {[], state} = Source.handle_init(nil, %Source{message_tag: :frame})
+    assert {[], ^state} = Source.handle_info({:other, frame(:not_transferred)}, nil, state)
+    refute_receive {:video_interop_release, :not_transferred, _holder}
+  end
+
   test "notifies its configured producer when playback starts" do
     {[], state} = Source.handle_init(nil, %Source{notify: self()})
     assert {[], ^state} = Source.handle_playing(nil, state)

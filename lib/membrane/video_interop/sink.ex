@@ -3,8 +3,14 @@ defmodule Membrane.VideoInterop.Sink do
   Consumes `%VideoInterop.Frame{}` buffers through a configured callback.
 
   The callback is invoked as `module.function(frame, target, extra_args...)` and
-  must consume the frame on every normal return. This keeps the package
-  independent of Emerge while allowing `Emerge.submit_video_frame/3` adapters.
+  must consume the frame on every normal return, including error and unexpected
+  return values. The sink releases only frames rejected before callback entry
+  and frames whose callback raises, exits, or throws. A callback that transfers
+  ownership must return normally; transferring and then raising would violate
+  this contract.
+
+  Invalid payloads and callback failures are reported to the parent as
+  `{:video_interop_sink_error, reason}`.
   """
 
   use Membrane.Sink

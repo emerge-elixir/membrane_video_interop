@@ -1,7 +1,12 @@
 # Changelog
 
-## 0.1.0 - Unreleased
+## 0.1.0 - 2026-09-03
 
-- Add bounded latest-frame `%VideoInterop.Frame{}` source transport.
-- Add callback/MFA sink transport with explicit frame-consumption ownership.
-- Add RGB and RGBA `Membrane.RawVideo` conversion for owned binary frames.
+First public release.
+
+### Added
+
+- Bounded latest-frame transport from producer messages into Membrane.
+- Callback-based sinks with explicit frame ownership and release behavior.
+- Conversion between aligned RGB or straight-alpha RGBA `Membrane.RawVideo`
+  buffers and owned VideoInterop frames.

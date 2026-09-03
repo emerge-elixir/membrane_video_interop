@@ -38,6 +38,16 @@ defmodule Membrane.VideoInterop.SinkTest do
     refute_receive {:submitted, _frame, _target}
   end
 
+  test "rejects non-frame payloads without invoking the callback" do
+    opts = %Sink{submit: {__MODULE__, :submit, [self()]}, target: :preview}
+    {[], state} = Sink.handle_init(nil, opts)
+
+    assert {[notify_parent: {:video_interop_sink_error, {:invalid_payload, :invalid}}], ^state} =
+             Sink.handle_buffer(:input, %Buffer{payload: :invalid}, nil, state)
+
+    refute_receive {:submitted, _frame, _target}
+  end
+
   test "releases the frame when the callback raises" do
     frame = frame_with_lease(:raised)
     opts = %Sink{submit: {__MODULE__, :raise_submit, []}, target: :preview}
@@ -48,6 +58,32 @@ defmodule Membrane.VideoInterop.SinkTest do
 
     assert_receive {:video_interop_release, :raised, holder}
     assert holder == frame.lease.holder
+  end
+
+  test "releases the frame when the callback throws" do
+    frame = frame_with_lease(:thrown)
+    opts = %Sink{submit: {__MODULE__, :throw_submit, []}, target: :preview}
+    {[], state} = Sink.handle_init(nil, opts)
+
+    assert {[notify_parent: {:video_interop_sink_error, {:throw, :submit_failed}}], ^state} =
+             Sink.handle_buffer(:input, %Buffer{payload: frame}, nil, state)
+
+    assert_receive {:video_interop_release, :thrown, holder}
+    assert holder == frame.lease.holder
+  end
+
+  test "does not release after an unexpected normal callback return" do
+    frame = frame_with_lease(:unexpected)
+    opts = %Sink{submit: {__MODULE__, :unexpected_submit, [self()]}, target: :preview}
+    {[], state} = Sink.handle_init(nil, opts)
+
+    assert {[notify_parent: {:video_interop_sink_error, {:invalid_submit_result, :unexpected}}],
+            ^state} = Sink.handle_buffer(:input, %Buffer{payload: frame}, nil, state)
+
+    assert_receive {:video_interop_release, :unexpected, holder}
+    assert holder == frame.lease.holder
+    assert_receive {:callback_released, ^holder}
+    refute_receive {:video_interop_release, :unexpected, _holder}
   end
 
   def submit(frame, target, test_pid) do
@@ -62,6 +98,13 @@ defmodule Membrane.VideoInterop.SinkTest do
   end
 
   def raise_submit(_frame, _target), do: raise("submit failed")
+  def throw_submit(_frame, _target), do: throw(:submit_failed)
+
+  def unexpected_submit(frame, _target, test_pid) do
+    VideoInterop.release(frame)
+    send(test_pid, {:callback_released, frame.lease.holder})
+    :unexpected
+  end
 
   defp frame do
     VideoInterop.Frame.binary(<<0, 0, 0, 255>>,

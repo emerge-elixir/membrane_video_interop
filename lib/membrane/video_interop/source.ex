@@ -2,8 +2,14 @@ defmodule Membrane.VideoInterop.Source do
   @moduledoc """
   Receives `%VideoInterop.Frame{}` messages and exposes them on a Membrane pad.
 
-  The element is a bounded latest-frame ingress. When downstream has no demand,
-  a new frame replaces and releases the previously pending frame.
+  The element is a bounded latest-frame ingress. Send `{message_tag, frame}` to
+  the PID announced by `:notify`. Sending a matching message transfers frame
+  ownership to the source; the sender must not release it afterward.
+
+  When downstream has no demand, a new frame replaces and releases the
+  previously pending frame. Invalid matching frames and pending shutdown frames
+  are also released by the source. Invalid ingress is reported to the parent as
+  `{:video_interop_source_error, reason}`.
   """
 
   use Membrane.Source
