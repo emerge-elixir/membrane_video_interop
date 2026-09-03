@@ -11,7 +11,7 @@ defmodule MembraneVideoInterop.MixProject do
       elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      description: "Membrane transport elements for storage-neutral VideoInterop frames",
+      description: "Membrane elements for VideoInterop CPU and zero-copy GPU frames",
       source_url: @source_url,
       homepage_url: @source_url,
       docs: [

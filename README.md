@@ -6,35 +6,36 @@
 
 ## The problem
 
-[Membrane](https://membrane.stream/) is a multimedia framework whose official
-elements generally exchange CPU-owned binary payloads in `%Membrane.Buffer{}`
-structs. This works well for media held in system memory, but GPU video frames
-often live in DMA-BUFs and should remain there as they cross native Rust and
-Elixir code.
+[Membrane](https://membrane.stream/) is a multimedia framework. Its official
+elements exchange CPU-owned binary payloads in `%Membrane.Buffer{}` structs.
+Converting a GPU-bound frame into a CPU-owned binary copies the frame out of GPU
+storage and breaks a zero-copy pipeline.
 
-[VideoInterop](https://hex.pm/packages/video_interop) provides the frame,
-DMA-BUF, synchronization, lease, and ownership primitives needed to share those
-GPU-backed frames safely through Elixir. It is framework-neutral, however, and
-does not provide Membrane elements.
+A zero-copy GPU pipeline passes DMA-BUF descriptors between its elements. Each
+frame also carries synchronization state and an ownership contract so that its
+DMA-BUF remains valid until the consumer finishes using it. Rust elements
+produce and consume the GPU frames while the Membrane pipeline runs in Elixir.
 
-Without a Membrane integration, each application must implement its own bridge,
-including demand handling and correct release behavior for replaced, rejected,
-failed, and pending frames. Copying every frame into a CPU-owned binary avoids
-the integration problem only by giving up GPU-native transport.
+[VideoInterop](https://hex.pm/packages/video_interop) defines the frame, DMA-BUF,
+synchronization, lease, and ownership primitives for that Rust and Elixir
+boundary. VideoInterop is framework-neutral and does not define Membrane
+elements.
 
 ## The solution
 
-Membrane VideoInterop builds on VideoInterop and provides a Membrane interface
-for its frames and ownership rules. It carries complete
-`%VideoInterop.Frame{}` values through a pipeline without changing their storage
-representation:
+Membrane VideoInterop builds on VideoInterop and exposes
+`%VideoInterop.Frame{}` through Membrane source and sink elements. Together, the
+two libraries provide the transport and ownership model for zero-copy GPU
+Membrane pipelines defined in Elixir with elements written in Rust.
+
+The transport preserves the frame's storage representation:
 
 - `Membrane.VideoInterop.Source` accepts tagged frame messages, follows
   downstream demand, and retains at most one pending frame.
 - `Membrane.VideoInterop.Sink` hands each frame to a configured callback with an
   explicit consumption contract.
-- `Membrane.VideoInterop.RawVideo` converts compatible owned RGB and RGBA frames
-  when a regular raw-video buffer is actually needed.
+- `Membrane.VideoInterop.RawVideo` performs explicit conversion between
+  compatible CPU-owned RGB or RGBA frames and raw-video buffers.
 
 The transport elements place the frame directly in
 `%Membrane.Buffer{payload: frame}`. DMA-BUF descriptors, synchronization
@@ -68,8 +69,8 @@ child(:frames, %Membrane.VideoInterop.Source{
 ```
 
 When playback starts, the source sends
-`{:video_interop_source_ready, source_pid}` to `producer_pid`. The producer can
-then transfer a frame to the source:
+`{:video_interop_source_ready, source_pid}` to `producer_pid`. The producer then
+transfers a frame to the source:
 
 ```elixir
 send(source_pid, {:video_frame, frame})
