@@ -6,21 +6,28 @@
 
 ## The problem
 
-Membrane pipelines are demand-driven, while video producers and consumers often
-exchange `%VideoInterop.Frame{}` values asynchronously. Those frames may contain
-ordinary immutable binaries or borrowed DMA-BUF storage with synchronization
-metadata and a lease.
+[Membrane](https://membrane.stream/) is a multimedia framework whose official
+elements generally exchange CPU-owned binary payloads in `%Membrane.Buffer{}`
+structs. This works well for media held in system memory, but GPU video frames
+often live in DMA-BUFs and should remain there as they cross native Rust and
+Elixir code.
 
-Application-specific bridges must preserve that storage contract, avoid
-retaining stale frames when demand stops, and release every borrowed frame on
-replacement, rejection, failure, and shutdown. Converting every frame to
-`Membrane.RawVideo` is not a general solution: GPU-backed frames would require a
-CPU copy and lose their original storage metadata.
+[VideoInterop](https://hex.pm/packages/video_interop) provides the frame,
+DMA-BUF, synchronization, lease, and ownership primitives needed to share those
+GPU-backed frames safely through Elixir. It is framework-neutral, however, and
+does not provide Membrane elements.
+
+Without a Membrane integration, each application must implement its own bridge,
+including demand handling and correct release behavior for replaced, rejected,
+failed, and pending frames. Copying every frame into a CPU-owned binary avoids
+the integration problem only by giving up GPU-native transport.
 
 ## The solution
 
-Membrane VideoInterop carries complete `%VideoInterop.Frame{}` values through a
-pipeline without changing their storage representation:
+Membrane VideoInterop builds on VideoInterop and provides a Membrane interface
+for its frames and ownership rules. It carries complete
+`%VideoInterop.Frame{}` values through a pipeline without changing their storage
+representation:
 
 - `Membrane.VideoInterop.Source` accepts tagged frame messages, follows
   downstream demand, and retains at most one pending frame.
