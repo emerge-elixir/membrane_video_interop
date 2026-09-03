@@ -4,11 +4,34 @@
 [![HexDocs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/membrane_video_interop)
 [![CI](https://github.com/emerge-elixir/membrane_video_interop/actions/workflows/ci.yml/badge.svg)](https://github.com/emerge-elixir/membrane_video_interop/actions/workflows/ci.yml)
 
-Membrane source and sink elements for transporting `%VideoInterop.Frame{}`
-values, with helpers for converting owned RGB and RGBA frames to and from
-`Membrane.RawVideo`.
+## The problem
 
-Version 0.1 supports Elixir 1.17/OTP 27 and later.
+Membrane pipelines are demand-driven, while video producers and consumers often
+exchange `%VideoInterop.Frame{}` values asynchronously. Those frames may contain
+ordinary immutable binaries or borrowed DMA-BUF storage with synchronization
+metadata and a lease.
+
+Application-specific bridges must preserve that storage contract, avoid
+retaining stale frames when demand stops, and release every borrowed frame on
+replacement, rejection, failure, and shutdown. Converting every frame to
+`Membrane.RawVideo` is not a general solution: GPU-backed frames would require a
+CPU copy and lose their original storage metadata.
+
+## The solution
+
+Membrane VideoInterop carries complete `%VideoInterop.Frame{}` values through a
+pipeline without changing their storage representation:
+
+- `Membrane.VideoInterop.Source` accepts tagged frame messages, follows
+  downstream demand, and retains at most one pending frame.
+- `Membrane.VideoInterop.Sink` hands each frame to a configured callback with an
+  explicit consumption contract.
+- `Membrane.VideoInterop.RawVideo` converts compatible owned RGB and RGBA frames
+  when a regular raw-video buffer is actually needed.
+
+The transport elements place the frame directly in
+`%Membrane.Buffer{payload: frame}`. DMA-BUF descriptors, synchronization
+metadata, and leases remain attached to the frame.
 
 ## Installation
 
@@ -20,43 +43,68 @@ def deps do
 end
 ```
 
+Version 0.1 supports Elixir 1.17/OTP 27 and later.
+
 ## Transport frames
 
+Add the source and sink to a pipeline:
+
 ```elixir
-child(:frames, %Membrane.VideoInterop.Source{notify: self()})
+child(:frames, %Membrane.VideoInterop.Source{
+  notify: producer_pid,
+  message_tag: :video_frame
+})
 |> child(:display, %Membrane.VideoInterop.Sink{
-  submit: {MyApp, :submit_frame, []},
+  submit: {MyFrameConsumer, :submit, []},
   target: :camera
 })
 ```
 
-The source reports `{:video_interop_source_ready, pid}` to `notify`. Configure a
-producer to send `{message_tag, frame}` directly to that PID. Sending a matching
-message transfers ownership to the source; the producer must not release it
-afterward. While downstream has no demand, the source keeps only the latest
-frame and releases the frame it replaces. Invalid matching frames notify the
-pipeline parent with `{:video_interop_source_error, reason}`.
+When playback starts, the source sends
+`{:video_interop_source_ready, source_pid}` to `producer_pid`. The producer can
+then transfer a frame to the source:
 
-The sink invokes `module.function(frame, target, extra_args...)`. That callback
-must consume the frame on every normal return. Invalid payloads and callback
-failures notify the pipeline parent with `{:video_interop_sink_error, reason}`.
+```elixir
+send(source_pid, {:video_frame, frame})
+```
+
+The sink invokes the configured callback as
+`MyFrameConsumer.submit(frame, :camera)`. Extra values in the MFA tuple are
+appended after the target.
+
+Invalid source frames and sink failures are reported to the pipeline parent as
+`{:video_interop_source_error, reason}` and
+`{:video_interop_sink_error, reason}` respectively.
+
+## Ownership rules
+
+- Sending a matching `{message_tag, frame}` transfers ownership to the source.
+  The producer must not release or reuse that frame afterward.
+- Messages with another tag are ignored and do not transfer ownership.
+- The source releases invalid frames, replaced pending frames, and pending
+  frames during shutdown.
+- Once the sink callback is entered, the callback must consume the frame on
+  every normal return, including error returns.
+- The sink releases the frame when validation fails or the callback raises,
+  exits, or throws. A callback must not transfer ownership and then raise.
+
+Owned binary frames have no lease. Borrowed DMA-BUF frames retain their exact
+`VideoInterop.Lease` throughout transport.
 
 ## Convert RawVideo
 
-`Membrane.VideoInterop.RawVideo` converts tightly framed RGB and straight-alpha
-RGBA frames to and from `%Membrane.RawVideo{}` and `%Membrane.Buffer{}`. The
-conversion requires aligned progressive frames, square pixels, and a full
-visible rectangle. `Membrane.RawVideo` does not carry VideoInterop colorimetry.
-DMA-BUF frames stay in the storage-neutral transport and are not copied through
-RawVideo conversion.
+For compatible owned frames, conversion is explicit:
 
-## Ownership
+```elixir
+alias Membrane.VideoInterop.RawVideo
 
-Owned binary frames have no lease. Borrowed DMA-BUF frames retain their exact
-`VideoInterop.Lease`. The source releases invalid, replaced, and pending
-shutdown frames. The sink releases a frame if its callback raises, exits, or
-throws. Every normal callback return consumes the frame, even when it reports
-an error; a callback must not transfer ownership and then raise.
+{:ok, buffer, raw_format} = RawVideo.frame_to_buffer(frame)
+{:ok, frame} = RawVideo.frame_from_buffer(buffer, raw_format)
+```
+
+Conversion supports aligned, progressive RGB and straight-alpha RGBA frames
+with square pixels and a full visible rectangle. `Membrane.RawVideo` does not
+carry VideoInterop colorimetry. DMA-BUF frames are not copied by these helpers.
 
 See the [changelog](CHANGELOG.md) for release notes.
 

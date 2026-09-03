@@ -94,13 +94,13 @@ Current results:
 - formatting, warnings-as-errors compilation, ExDoc, Hex advisory audit, and
   workflow lint pass;
 - all direct dependencies are current within their declared requirements;
-- the package contains 8 files and 28,428 unpacked bytes, with no build output,
+- the package contains 8 files and 29,926 unpacked bytes, with no build output,
   tests, maintainer plans, native code, or path dependencies;
 - the unpacked package compiles in production mode using registry-only
   dependencies.
 
-The current provisional archive is 14,336 bytes with SHA-256
-`a2323bb0011c6109f8877abf22640b4c9ee15dcf361d3a7522b731650abf2e45`.
+The current provisional archive is 15,360 bytes with SHA-256
+`9dc358f0babd8b957d4875572351a356c5de59fbd122ce205c52a930f5bfc534`.
 Recompute this from the final clean release commit.
 
 A fresh dependency compilation on Elixir 1.20 reports an upstream deprecation
