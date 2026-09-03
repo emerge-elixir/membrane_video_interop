@@ -31,7 +31,7 @@ defmodule Membrane.VideoInterop.Source do
     ],
     message_tag: [
       spec: atom() | String.t(),
-      default: :emerge_skia_frame,
+      default: :video_interop_frame,
       description: "Tag expected in `{tag, frame}` ingress messages"
     ]
   )

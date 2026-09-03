@@ -60,7 +60,7 @@ Add the source and sink to a pipeline:
 ```elixir
 child(:frames, %Membrane.VideoInterop.Source{
   notify: producer_pid,
-  message_tag: :video_frame
+  message_tag: :video_interop_frame
 })
 |> child(:display, %Membrane.VideoInterop.Sink{
   submit: {MyFrameConsumer, :submit, []},
@@ -68,12 +68,12 @@ child(:frames, %Membrane.VideoInterop.Source{
 })
 ```
 
-When playback starts, the source sends
-`{:video_interop_source_ready, source_pid}` to `producer_pid`. The producer then
-transfers a frame to the source:
+`:video_interop_frame` is the default message tag. When playback starts, the
+source sends `{:video_interop_source_ready, source_pid}` to `producer_pid`. The
+producer then transfers a frame to the source:
 
 ```elixir
-send(source_pid, {:video_frame, frame})
+send(source_pid, {:video_interop_frame, frame})
 ```
 
 The sink invokes the configured callback as

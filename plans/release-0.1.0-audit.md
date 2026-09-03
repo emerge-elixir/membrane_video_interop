@@ -1,117 +1,98 @@
 # Membrane VideoInterop 0.1.0 Release Audit
 
-Status: **implementation candidate prepared; external release setup remains**
+Status: **local release candidate validated; publication infrastructure remains**
 
 Audit date: 2026-09-03
 
-Candidate state: local working tree based on
-`54c8d907ce830930a3527c57207572f13d049e74`. The final release commit does not
-exist yet.
+## Decision
 
-## Release decision
+No source, ownership, compatibility, documentation, or package-closure defect
+blocks version 0.1.0. The local release candidate passes the complete validation
+matrix and resolves `video_interop 0.1.0` from Hex.
 
-The package boundary is appropriate for a first release: it contains Membrane
-transport and RawVideo conversion only, depends on published `video_interop`
-0.1, and contains no native implementation.
+Do not create `v0.1.0` until the GitHub repository and protected Hex environment
+exist. The declared repository URL currently returns HTTP 404, and this machine
+has no GitHub or Hex publishing credentials.
 
-Do not tag yet. The repository has no configured remote, is not publicly
-reachable at its declared GitHub URL, and has uncommitted release work.
-Exact-tag CI and the protected Hex publication environment therefore cannot
-run.
+## Release contract
 
-## Findings addressed
+The package provides the Membrane interface for VideoInterop frames:
 
-### Registry dependency
+- the source receives tagged `%VideoInterop.Frame{}` messages, follows Membrane
+  demand, and retains at most one pending frame;
+- the sink transfers each frame to an MFA callback under an explicit ownership
+  contract;
+- transport preserves owned binary and borrowed DMA-BUF storage;
+- RawVideo conversion is restricted to complete, aligned, progressive RGB and
+  straight-alpha RGBA frames in CPU-owned binaries.
 
-The sibling VideoInterop path override was removed. `mix.exs` now declares
-`{:video_interop, "~> 0.1.0"}`, and `mix.lock` records published Hex version
-0.1.0.
+The source default message tag is the framework-neutral
+`:video_interop_frame`. Integrations with another producer protocol must set
+`:message_tag` explicitly.
 
-### Ownership documentation
+## Dependency and package state
 
-The source now states that a matching ingress message transfers ownership and
-that invalid, replaced, and pending shutdown frames are released. The sink now
-states that every normal callback return consumes the frame, while exceptions,
-exits, and throws are released by the sink. A callback must not transfer
-ownership and then raise.
+`mix.exs` declares registry dependencies only:
 
-### RawVideo conversion boundary
-
-RawVideo conversion now validates inputs instead of allowing malformed formats
-to raise during arithmetic or frame construction. Conversion rejects unaligned
-input, unsupported framerates, partial visible rectangles, non-progressive or
-non-square formats, and RGBA frames whose alpha is not straight. Padded rows are
-compacted through iodata rather than repeated binary accumulation.
-
-### Package and release automation
-
-The project now pins its current Erlang/Elixir development toolchain, includes
-the complete Apache-2.0 text with project-specific attribution, includes
-changelog and license pages in generated docs, verifies Hex advisories in CI,
-and compiles the unpacked package in production mode from registry dependencies.
-
-A protected `publish-hex` job runs only for `v*` tags in the canonical GitHub
-repository, depends on the complete test/package matrix and exact-tag gate, and
-publishes the package and documentation separately.
-
-## Remaining release blockers
-
-1. Create the `emerge-elixir/membrane_video_interop` GitHub repository, configure
-   `origin`, push `main`, and make it publicly accessible.
-2. Create a protected GitHub environment named `hex`, restricted to tag rules
-   matching `v*`, with reviewer approval.
-3. Add a short-lived `HEX_API_KEY` environment secret with API write permission.
-4. Review and commit the current candidate.
-5. Run the full validation matrix from the final clean commit.
-6. Confirm the recorded `2026-09-03` release date is still correct.
-7. Push annotated tag `v0.1.0`, wait for all tag checks, then approve the
-   protected publication deployment.
-
-The Hex API currently returns 404 for `membrane_video_interop`; the name is
-available but not reserved. Recheck immediately before publication.
-
-## Validation matrix
-
-```sh
-mix deps.get
-mix format --check-formatted
-mix compile --force --warnings-as-errors
-mix test --warnings-as-errors
-mix docs --warnings-as-errors
-mix hex.audit
-mix hex.build --unpack --output /tmp/membrane_video_interop-0.1.0
+```elixir
+{:membrane_core, "~> 1.2"}
+{:membrane_raw_video_format, "~> 0.4"}
+{:video_interop, "~> 0.1.0"}
 ```
 
-Repeat compile and test on Elixir 1.17/OTP 27. Compile the unpacked package with
-`MIX_ENV=prod` after fetching registry dependencies.
+`mix.lock` resolves published `video_interop 0.1.0` with Hex checksum
+`09d96389c29535a8fe6a994a3c12a3456119e6ede2f878b05711ea077f184deb`.
+The package contains no path dependency, native code, build output, test source,
+or maintainer-only plan.
 
-Current results:
+The package contains 8 files and 30,403 unpacked bytes. The current archive is
+15,360 bytes with SHA-256
+`7d9fb2bf8ddb0ea06f9a4afe998c02a750af156d7afea34a858fb89ab7ed1516`.
+Rebuild the archive from the exact tagged commit and verify the checksum before
+approving publication.
 
-- 22 tests pass on Elixir 1.17.3/OTP 27.3.4.3 and Elixir 1.20.2/OTP 29.0.5;
-- the same suite passes with minimum dependencies `membrane_core 1.2.0` and
+## Validation results
+
+The following gates pass:
+
+- 22 tests on Elixir 1.20.2/OTP 29.0.5;
+- 22 tests on Elixir 1.17.3/OTP 27.3.4.3;
+- 22 tests with minimum dependencies `membrane_core 1.2.0` and
   `membrane_raw_video_format 0.4.0`;
-- built-in line coverage is 97.8%;
-- formatting, warnings-as-errors compilation, ExDoc, Hex advisory audit, and
-  workflow lint pass;
-- all direct dependencies are current within their declared requirements;
-- the package contains 8 files and 30,334 unpacked bytes, with no build output,
-  tests, maintainer plans, native code, or path dependencies;
-- the unpacked package compiles in production mode using registry-only
-  dependencies.
+- 97.8% built-in line coverage;
+- formatting and warnings-as-errors compilation;
+- ExDoc generation with warnings denied;
+- Hex advisory audit and dependency currency check;
+- GitHub Actions workflow lint;
+- unpacked production package compilation from registry dependencies;
+- exact version and dated changelog metadata for `v0.1.0`.
 
-The current provisional archive is 15,360 bytes with SHA-256
-`685120acfd2dbc896fccbc02e7d523c8c10c24ad6c025e31dcd3960b1f0a3b60`.
-Recompute this from the final clean release commit.
+A fresh dependency compilation on Elixir 1.20 emits a deprecation warning from
+transitive `qex 0.5.2`. Project compilation remains warning-free and the
+warnings-as-errors gate passes.
 
-A fresh dependency compilation on Elixir 1.20 reports an upstream deprecation
-from transitive `qex 0.5.2`; project compilation remains warning-free and the
-warnings-as-errors gate passes. This is not a package-local release blocker.
+## Publication blockers
+
+1. Create `emerge-elixir/membrane_video_interop` on GitHub and make it public.
+2. Push `main` to the configured `origin` and verify anonymous clone, README
+   badges, package links, and Actions access.
+3. Create a protected GitHub environment named `hex` with reviewer approval and
+   a deployment tag rule matching `v*`.
+4. Add a short-lived `HEX_API_KEY` environment secret with API write permission.
+5. Confirm that `2026-09-03` is the publication date in `CHANGELOG.md`.
+6. Run the full CI matrix on the pushed release commit.
+7. Create and push annotated tag `v0.1.0` on that exact commit.
+8. Review the successful tag gates and approve the protected `publish-hex`
+   deployment.
+
+The Hex API returns 404 for `membrane_video_interop`; version 0.1.0 is not
+published.
 
 ## Post-publication verification
 
 1. Fetch `{:membrane_video_interop, "== 0.1.0"}` in a clean Mix project.
 2. Compile with warnings denied and run a minimal source-to-sink pipeline.
-3. Verify HexDocs and source links.
+3. Verify HexDocs and source links against tag `v0.1.0`.
 4. Create the GitHub release from the same tag.
-5. Replace downstream `membrane_video_interop` path dependencies and regenerate
-   locks only after the registry artifact passes.
+5. Replace downstream path dependencies and regenerate locks only after the
+   registry artifact passes verification.

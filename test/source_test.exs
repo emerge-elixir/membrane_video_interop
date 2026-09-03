@@ -31,7 +31,7 @@ defmodule Membrane.VideoInterop.SourceTest do
   test "releases pending ownership during termination" do
     {[], state} = Source.handle_init(nil, %Source{})
     pending = frame(:pending)
-    {[], state} = Source.handle_info({:emerge_skia_frame, pending}, nil, state)
+    {[], state} = Source.handle_info({:video_interop_frame, pending}, nil, state)
 
     assert {[terminate: :normal], %{pending: nil}} =
              Source.handle_terminate_request(nil, state)
