@@ -46,7 +46,7 @@ metadata, and leases remain attached to the frame.
 ```elixir
 def deps do
   [
-    {:membrane_video_interop, "~> 0.1.0"}
+    {:membrane_video_interop, "~> 0.1.1"}
   ]
 end
 ```
@@ -119,4 +119,4 @@ See the [changelog](CHANGELOG.md) for release notes.
 ## License
 
 Apache-2.0. See the
-[license](https://github.com/emerge-elixir/membrane_video_interop/blob/v0.1.0/LICENSE).
+[license](https://github.com/emerge-elixir/membrane_video_interop/blob/v0.1.1/LICENSE).

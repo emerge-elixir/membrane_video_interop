@@ -65,7 +65,7 @@ jobs:
       - run: mix hex.audit
       - name: Build and compile the unpacked package
         run: |
-          package_dir="$RUNNER_TEMP/membrane_video_interop-0.1.0"
+          package_dir="$RUNNER_TEMP/membrane_video_interop-0.1.1"
           mix hex.build --unpack --output "$package_dir"
           (
             cd "$package_dir"
@@ -128,7 +128,7 @@ jobs:
       - name: Build documentation
         run: mix docs --warnings-as-errors
       - name: Verify Hex package contents
-        run: mix hex.build --unpack --output "$RUNNER_TEMP/membrane_video_interop-0.1.0"
+        run: mix hex.build --unpack --output "$RUNNER_TEMP/membrane_video_interop-0.1.1"
       - name: Publish tagged Hex package
         env:
           HEX_API_KEY: ${{ secrets.HEX_API_KEY }}

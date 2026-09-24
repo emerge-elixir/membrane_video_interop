@@ -7,7 +7,7 @@
 
 1. Make <https://github.com/emerge-elixir/membrane_video_interop> public and
    verify anonymous clone and package links.
-2. Confirm `video_interop 0.1.0` remains available from Hex.
+2. Confirm `video_interop 0.1.2` remains available from Hex.
 3. Confirm `main` contains every release fix and matches the remote.
 4. Create a short-lived Hex key at <https://hex.pm/dashboard/keys> with API
    write permission.
@@ -41,7 +41,7 @@ temporary checkout, also test the minimum declared dependency versions:
 Build and inspect the package:
 
 ```sh
-mix hex.build --unpack --output /tmp/membrane_video_interop-0.1.0
+mix hex.build --unpack --output /tmp/membrane_video_interop-0.1.1
 ```
 
 The archive must contain only the intended Elixir source and user-facing
@@ -52,23 +52,23 @@ Compile the unpacked package from registry dependencies:
 
 ```sh
 (
-  cd /tmp/membrane_video_interop-0.1.0
+  cd /tmp/membrane_video_interop-0.1.1
   MIX_ENV=prod mix deps.get
   MIX_ENV=prod mix compile --force --warnings-as-errors
 )
 ```
 
 Record the final commit, toolchains, package file list, archive checksum, and
-test results in `plans/release-0.1.0-audit.md`.
+test results in a version-specific release audit under `plans/`.
 
 ## Tag and publish through CI
 
 Create and push an annotated tag on the clean release commit:
 
 ```sh
-git tag -a v0.1.0 -m "Release Membrane VideoInterop 0.1.0"
+git tag -a v0.1.1 -m "Release Membrane VideoInterop 0.1.1"
 git push origin main
-git push origin v0.1.0
+git push origin v0.1.1
 ```
 
 The tag workflow runs the supported toolchain matrix, documentation and package
@@ -91,9 +91,9 @@ package, fix it in a new commit and release a new version.
 In a clean temporary Mix project, add:
 
 ```elixir
-{:membrane_video_interop, "== 0.1.0"}
+{:membrane_video_interop, "== 0.1.1"}
 ```
 
 Run `mix deps.get`, compile with warnings denied, run a minimal source-to-sink
-pipeline, and verify HexDocs source links point to `v0.1.0`. Then create the
+pipeline, and verify HexDocs source links point to `v0.1.1`. Then create the
 GitHub release and migrate downstream applications from path dependencies.

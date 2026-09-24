@@ -1,7 +1,7 @@
 defmodule MembraneVideoInterop.MixProject do
   use Mix.Project
 
-  @version "0.1.0"
+  @version "0.1.1"
   @source_url "https://github.com/emerge-elixir/membrane_video_interop"
 
   def project do
@@ -34,7 +34,7 @@ defmodule MembraneVideoInterop.MixProject do
     [
       {:membrane_core, "~> 1.2"},
       {:membrane_raw_video_format, "~> 0.4"},
-      {:video_interop, "~> 0.1.0"},
+      {:video_interop, "~> 0.1.2"},
       {:ex_doc, "~> 0.38", only: :dev, runtime: false}
     ]
   end
